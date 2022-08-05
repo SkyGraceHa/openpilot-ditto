@@ -229,14 +229,21 @@ CUtilWidget::CUtilWidget( void *p ) : CGroupWidget( "Util Program" )
 
    SoftwarePanel *parent = (SoftwarePanel*)p;
 
-  const char* panda_flashing = "/data/openpilot/selfdrive/assets/addon/script/panda_flashing.sh ''";
-  auto pandaflashingtbtn = new ButtonControl("Panda Flashing", "RUN");
+  const char* panda_flashing = "/data/openpilot/selfdrive/assets/addon/script/panda_flashing.sh";
+  auto pandaflashingtbtn = new ButtonControl("Panda Flashing(OLD)", "RUN");
   QObject::connect(pandaflashingtbtn, &ButtonControl::clicked, [=]() {
     if (ConfirmationDialog::confirm("Panda's green LED blinks quickly during panda flashing. Never turn off or disconnect the device arbitrarily. Do you want to proceed?", this)) {
       std::system(panda_flashing);
     }
   });
 
+  const char* panda_flashing_new = "/data/openpilot/panda/board/recover.sh";
+  auto pandaflashingtbtn_new = new ButtonControl("Panda Flashing(NEW)", "RUN");
+  QObject::connect(pandaflashingtbtn_new, &ButtonControl::clicked, [=]() {
+    if (ConfirmationDialog::confirm("Panda's green LED blinks quickly during panda flashing. Never turn off or disconnect the device arbitrarily. Do you want to proceed?", this)) {
+      std::system(panda_flashing_new);
+    }
+  });
 
   const char* open_settings = "am start -a android.intent.action.MAIN -n com.android.settings/.Settings";
   auto open_settings_btn = new ButtonControl("Open Android Settings", "RUN");
@@ -260,6 +267,7 @@ CUtilWidget::CUtilWidget( void *p ) : CGroupWidget( "Util Program" )
 
   
   pBoxLayout->addWidget( pandaflashingtbtn );
+  pBoxLayout->addWidget( pandaflashingtbtn_new );
   pBoxLayout->addWidget( open_settings_btn );
   pBoxLayout->addWidget( softkey_btn );
   pBoxLayout->addWidget( mixplorer_btn );  
@@ -6363,7 +6371,7 @@ void SpeedLimitSignType::refresh() {
   }
 }
 
-RadarLongHelperOption::RadarLongHelperOption() : AbstractControl("Radar Long Assist", "Vision Only, Vision+Radar, Radar Only, OPKR Custom", "../assets/offroad/icon_shell.png") {
+RadarLongHelperOption::RadarLongHelperOption() : AbstractControl("Long Mode", "Vision Only, Vision+Radar, Radar Only, OPKR Custom", "../assets/offroad/icon_shell.png") {
 
   label.setAlignment(Qt::AlignVCenter|Qt::AlignRight);
   label.setStyleSheet("color: #e0e879");
@@ -7500,10 +7508,10 @@ void MultipleLatSelect::refresh() {
 
   switch( m_nMethod )
   {
-    case 0 : strMethod = "Spd_LowDlt"; break;
-    case 1 : strMethod = "Ang_LowDlt"; break;
-    case 2 : strMethod = "Ang_Interp"; break;
-    case 3 : strMethod = "Spd_Interp"; break;
+    case 0 : strMethod = "Spd_Split"; break;
+    case 1 : strMethod = "Ang_Split"; break;
+    case 2 : strMethod = "Ang_Intrp"; break;
+    case 3 : strMethod = "Spd_Intrp"; break;
     default :
       strMethod = "None"; 
       break;
@@ -7581,9 +7589,9 @@ MultipleLateralSpeed::MultipleLateralSpeed() : AbstractControl("", "", "") {
   btnplusl.setFixedSize(70, 100);
   btnminusr.setFixedSize(70, 100);
   btnplusr.setFixedSize(70, 100);
-  btn1.setFixedSize(170, 100);
-  btn2.setFixedSize(170, 100);
-  btn3.setFixedSize(170, 100);
+  btn1.setFixedSize(150, 100);
+  btn2.setFixedSize(150, 100);
+  btn3.setFixedSize(150, 100);
 
   hlayout->addWidget(&btn1);
   hlayout->addWidget(&btnminusl);
@@ -7823,9 +7831,9 @@ MultipleLateralAngle::MultipleLateralAngle() : AbstractControl("", "", "") {
   btnplusl.setFixedSize(70, 100);
   btnminusr.setFixedSize(70, 100);
   btnplusr.setFixedSize(70, 100);
-  btn1.setFixedSize(170, 100);
-  btn2.setFixedSize(170, 100);
-  btn3.setFixedSize(170, 100);
+  btn1.setFixedSize(150, 100);
+  btn2.setFixedSize(150, 100);
+  btn3.setFixedSize(150, 100);
 
   hlayout->addWidget(&btn1);
   hlayout->addWidget(&btnminusl);
@@ -8058,4 +8066,63 @@ void StoppingDist::refresh() {
   float valuef = valuei * 0.1;
   QString valuefs = QString::number(valuef);
   label.setText(QString::fromStdString(valuefs.toStdString()));
+}
+
+VariableCruiseLevel::VariableCruiseLevel() : AbstractControl("Button Spamming Level", "High values make early stopping and starting, but might be not comfortable. Low values are the opposite.", "../assets/offroad/icon_shell.png") {
+
+  label.setAlignment(Qt::AlignVCenter|Qt::AlignRight);
+  label.setStyleSheet("color: #e0e879");
+  hlayout->addWidget(&label);
+
+  btnminus.setStyleSheet(R"(
+    padding: 0;
+    border-radius: 50px;
+    font-size: 35px;
+    font-weight: 500;
+    color: #E4E4E4;
+    background-color: #393939;
+  )");
+  btnplus.setStyleSheet(R"(
+    padding: 0;
+    border-radius: 50px;
+    font-size: 35px;
+    font-weight: 500;
+    color: #E4E4E4;
+    background-color: #393939;
+  )");
+  btnminus.setFixedSize(150, 100);
+  btnplus.setFixedSize(150, 100);
+  btnminus.setText("－");
+  btnplus.setText("＋");
+  hlayout->addWidget(&btnminus);
+  hlayout->addWidget(&btnplus);
+
+  QObject::connect(&btnminus, &QPushButton::clicked, [=]() {
+    auto str = QString::fromStdString(params.get("VarCruiseSpeedFactor"));
+    int value = str.toInt();
+    value = value - 1;
+    if (value <= -1) {
+      value = 16;
+    }
+    QString values = QString::number(value);
+    params.put("VarCruiseSpeedFactor", values.toStdString());
+    refresh();
+  });
+  
+  QObject::connect(&btnplus, &QPushButton::clicked, [=]() {
+    auto str = QString::fromStdString(params.get("VarCruiseSpeedFactor"));
+    int value = str.toInt();
+    value = value + 1;
+    if (value >= 17) {
+      value = 0;
+    }
+    QString values = QString::number(value);
+    params.put("VarCruiseSpeedFactor", values.toStdString());
+    refresh();
+  });
+  refresh();
+}
+
+void VariableCruiseLevel::refresh() {
+  label.setText(QString::fromStdString(params.get("VarCruiseSpeedFactor")));
 }

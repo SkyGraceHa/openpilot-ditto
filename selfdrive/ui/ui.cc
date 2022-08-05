@@ -141,7 +141,7 @@ static void update_model(UIState *s, const cereal::ModelDataV2::Reader &model) {
     max_distance = std::clamp((float)(lead_d - fmin(lead_d * 0.35, 10.)), 0.0f, max_distance);
   }
   max_idx = get_path_length_idx(model_position, max_distance);
-  update_line_data(s, model_position, 0.5, 1.22, &scene.track_vertices, max_idx);
+  update_line_data(s, model_position, 0.9, 1.22, &scene.track_vertices, max_idx);
 
    // update blindspot line
   for (int i = 0; i < std::size(scene.lane_blindspot_vertices); i++) {
@@ -287,12 +287,20 @@ static void update_state(UIState *s) {
     scene.fanSpeed = scene.deviceState.getFanSpeedPercentDesired();
     scene.batPercent = scene.deviceState.getBatteryPercent();
   }
-  if (sm.updated("pandaState")) {
-    auto pandaState = sm["pandaState"].getPandaState();
-    scene.pandaType = pandaState.getPandaType();
-    scene.ignition = pandaState.getIgnitionLine() || pandaState.getIgnitionCan();
-    scene.controlAllowed = pandaState.getControlsAllowed();
-  } else if ((s->sm->frame - s->sm->rcv_frame("pandaState")) > 5*UI_FREQ) {
+  if (sm.updated("pandaStates")) {
+    auto pandaStates = sm["pandaStates"].getPandaStates();
+    if (pandaStates.size() > 0) {
+      scene.pandaType = pandaStates[0].getPandaType();
+
+      if (scene.pandaType != cereal::PandaState::PandaType::UNKNOWN) {
+        scene.ignition = false;
+        for (const auto& pandaState : pandaStates) {
+          scene.ignition |= pandaState.getIgnitionLine() || pandaState.getIgnitionCan();
+          scene.controlAllowed = pandaState.getControlsAllowed();
+        }
+      }
+    }
+  } else if ((s->sm->frame - s->sm->rcv_frame("pandaStates")) > 5*UI_FREQ) {
     scene.pandaType = cereal::PandaState::PandaType::UNKNOWN;
   }
   if (sm.updated("ubloxGnss")) {
@@ -557,7 +565,7 @@ static void update_status(UIState *s) {
 QUIState::QUIState(QObject *parent) : QObject(parent) {
   ui_state.sm = std::make_unique<SubMaster, const std::initializer_list<const char *>>({
     "modelV2", "controlsState", "liveCalibration", "radarState", "deviceState", "roadCameraState",
-    "pandaState", "carParams", "driverMonitoringState", "sensorEvents", "carState", "liveLocationKalman",
+    "pandaStates", "carParams", "driverMonitoringState", "sensorEvents", "carState", "liveLocationKalman",
     "ubloxGnss", "gpsLocationExternal", "liveParameters", "lateralPlan", "liveNaviData", "liveMapData", "longitudinalPlan",
   });
 

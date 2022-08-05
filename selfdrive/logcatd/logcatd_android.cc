@@ -73,7 +73,7 @@ int main() {
       MessageBuilder msg;
       auto framed = msg.initEvent().initLiveNaviData();
 
-   //  opkrspdlimit, opkrspddist, opkrsigntype, opkrcurvangle
+   //  opkrspdlimit, opkrspddist, opkrsigntype, opkrcurveangle, opkrremaintime, opkradasicontype, opkraveragespd
 
       // code based from atom
       nDelta_nsec = tv_nsec - res.tv_nsec;
@@ -103,7 +103,6 @@ int main() {
         res.speedLimitDistance = 0;
         res.speedLimit = 0;
         res.safetySign = 0;
-        //system("logcat -c &");
       }
       else if( strcmp( entry.tag, "opkrturninfo" ) == 0 )
       {
@@ -137,6 +136,7 @@ int main() {
           res.speedLimitDistance = 0;
           res.speedLimit = 0;
           res.safetySign = 0;
+          //system("logcat -c &");
         }
       }
 
@@ -162,7 +162,8 @@ int main() {
     131 단속카메라(신호위반카메라)  
     135 고정식(버스단속구간)  - 호야
     150 경찰차(이동식단속구간)  - 호야
-    165 구간단속    
+    165 구간단속
+    195, 197 구간단속, 가변속도제한구간
     198 차선변경금지시작
     199 차선변경금지종료
     129 주정차금지구간

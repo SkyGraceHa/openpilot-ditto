@@ -39,6 +39,7 @@ class NaviControl():
     self.map_speed = 0
     self.onSpeedControl = False
     self.curvSpeedControl = False
+    self.cutInControl = False
     self.ctrl_speed = 0
     self.vision_curv_speed_c = list(map(int, Params().get("VCurvSpeedC", encoding="utf8").split(',')))
     self.vision_curv_speed_t = list(map(int, Params().get("VCurvSpeedT", encoding="utf8").split(',')))
@@ -327,6 +328,7 @@ class NaviControl():
     self.lead_0 = self.sm['radarState'].leadOne
     self.lead_1 = self.sm['radarState'].leadTwo
     self.cut_in = True if self.lead_1.status and (self.lead_0.dRel - self.lead_1.dRel) > 3.0 else False
+    self.cutInControl = False
 
     if CS.driverAcc_time and CS.cruise_set_mode in (1,2,4):
       self.t_interval = 7
@@ -353,7 +355,8 @@ class NaviControl():
           self.cut_in_run_timer -= 1
         elif self.cut_in:
           self.cut_in_run_timer = 1000
-        if self.cut_in_run_timer and dRel < CS.clu_Vanz * 0.36: # keep decel when cut_in, max running time 10sec
+        if self.cut_in_run_timer and dRel < CS.clu_Vanz * 0.3: # keep decel when cut_in, max running time 10sec
+          self.cutInControl = True
           var_speed = min(CS.CP.vFutureA, navi_speed)
         elif vRel >= (-3 if CS.is_set_speed_in_mph else -5):
           var_speed = min(CS.CP.vFuture + max(0, int(dRel*(0.11 if CS.is_set_speed_in_mph else 0.16)+vRel)), navi_speed)
