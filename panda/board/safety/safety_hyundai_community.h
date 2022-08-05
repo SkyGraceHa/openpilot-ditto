@@ -23,22 +23,21 @@ const CanMsg HYUNDAI_COMMUNITY_TX_MSGS[] = {
 };
 
 // older hyundai models have less checks due to missing counters and checksums
-AddrCheckStruct hyundai_community_addr_checks[] = {
+AddrCheckStruct hyundai_community_rx_checks[] = {
   {.msg = {{608, 0, 8, .check_checksum = true, .max_counter = 3U, .expected_timestep = 10000U},
-           {881, 0, 8, .expected_timestep = 10000U}, { 0 }}},
-  {.msg = {{902, 0, 8, .expected_timestep = 20000U}, { 0 }, { 0 }}},
+           {881, 0, 8, .expected_timestep = 10000U}}},
+  {.msg = {{902, 0, 8, .expected_timestep = 20000U}}},
   // {.msg = {{916, 0, 8, .expected_timestep = 20000U}}}, some Santa Fe does not have this msg, need to find alternative
 };
+const int HYUNDAI_COMMUNITY_RX_CHECK_LEN = sizeof(hyundai_community_rx_checks) / sizeof(hyundai_community_rx_checks[0]);
 
-#define HYUNDAI_COMMUNITY_ADDR_CHECK_LEN (sizeof(hyundai_community_addr_checks) / sizeof(hyundai_community_addr_checks[0]))
-addr_checks hyundai_community_rx_checks = {hyundai_community_addr_checks, HYUNDAI_COMMUNITY_ADDR_CHECK_LEN};
+static int hyundai_community_rx_hook(CAN_FIFOMailBox_TypeDef *to_push) {
 
-static int hyundai_community_rx_hook(CANPacket_t *to_push) {
-
+  bool valid;
   int addr = GET_ADDR(to_push);
   int bus = GET_BUS(to_push);
 
-  bool valid = addr_safety_check(to_push, &hyundai_community_rx_checks,
+  valid = addr_safety_check(to_push, hyundai_community_rx_checks, HYUNDAI_COMMUNITY_RX_CHECK_LEN,
                             hyundai_get_checksum, hyundai_compute_checksum,
                             hyundai_get_counter);
 
@@ -109,7 +108,7 @@ static int hyundai_community_rx_hook(CANPacket_t *to_push) {
         controls_allowed = 0;
       }
     }
-
+  
     // sample wheel speed, averaging opposite corners
     if (addr == 902 && bus == 0) {
       int hyundai_speed = GET_BYTES_04(to_push) & 0x3FFFU;  // FL
@@ -122,8 +121,7 @@ static int hyundai_community_rx_hook(CANPacket_t *to_push) {
   return valid;
 }
 
-static int hyundai_community_tx_hook(CANPacket_t *to_send, bool longitudinal_allowed) {
-  UNUSED(longitudinal_allowed);
+static int hyundai_community_tx_hook(CAN_FIFOMailBox_TypeDef *to_send) {
 
   int tx = 1;
   int addr = GET_ADDR(to_send);
@@ -209,7 +207,7 @@ static int hyundai_community_tx_hook(CANPacket_t *to_send, bool longitudinal_all
   return tx;
 }
 
-static int hyundai_community_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
+static int hyundai_community_fwd_hook(int bus_num, CAN_FIFOMailBox_TypeDef *to_fwd) {
 
   int bus_fwd = -1;
   int addr = GET_ADDR(to_fwd);
@@ -275,7 +273,7 @@ static int hyundai_community_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
   return bus_fwd;
 }
 
-static const addr_checks* hyundai_community_init(uint16_t param) {
+static void hyundai_community_init(int16_t param) {
   UNUSED(param);
   controls_allowed = false;
   relay_malfunction_reset();
@@ -283,8 +281,6 @@ static const addr_checks* hyundai_community_init(uint16_t param) {
   if (current_board->has_obd && HKG_forward_obd) {
     current_board->set_can_mode(CAN_MODE_OBD_CAN2);
   }
-  hyundai_community_rx_checks = (addr_checks){hyundai_community_addr_checks, HYUNDAI_COMMUNITY_ADDR_CHECK_LEN};
-  return &hyundai_community_rx_checks;
 }
 
 const safety_hooks hyundai_community_hooks = {
@@ -293,4 +289,6 @@ const safety_hooks hyundai_community_hooks = {
   .tx = hyundai_community_tx_hook,
   .tx_lin = nooutput_tx_lin_hook,
   .fwd = hyundai_community_fwd_hook,
+  .addr_check = hyundai_community_rx_checks,
+  .addr_check_len = sizeof(hyundai_community_rx_checks) / sizeof(hyundai_community_rx_checks[0]),
 };

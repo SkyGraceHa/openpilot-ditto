@@ -34,8 +34,6 @@
 #define PROVISION_CHUNK_ADDRESS 0x080FFFE0U
 #define DEVICE_SERIAL_NUMBER_ADDRESS 0x080FFFC0U
 
-#include "can_definitions.h"
-
 #ifndef BOOTSTUB
   #include "main_declarations.h"
 #else
@@ -45,7 +43,6 @@
 #include "libc.h"
 #include "critical.h"
 #include "faults.h"
-#include "utils.h"
 
 #include "drivers/registers.h"
 #include "drivers/interrupts.h"
@@ -57,10 +54,9 @@
 #include "stm32h7/board.h"
 #include "stm32h7/clock.h"
 
-#if !defined(BOOTSTUB) && defined(PANDA)
+#if !defined (BOOTSTUB) && defined(PANDA)
   #include "drivers/uart.h"
   #include "stm32h7/lluart.h"
-  #include "stm32h7/llexti.h"
 #endif
 
 #ifdef BOOTSTUB

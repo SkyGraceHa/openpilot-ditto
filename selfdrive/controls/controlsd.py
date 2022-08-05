@@ -60,7 +60,7 @@ ButtonEvent = car.CarState.ButtonEvent
 SafetyModel = car.CarParams.SafetyModel
 GearShifter = car.CarState.GearShifter
 
-IGNORED_SAFETY_MODES = (SafetyModel.silent, SafetyModel.noOutput)
+IGNORED_SAFETY_MODES = [SafetyModel.silent, SafetyModel.noOutput]
 
 
 class Controls:
@@ -84,7 +84,7 @@ class Controls:
     self.sm = sm
     if self.sm is None:
       ignore = ['driverCameraState', 'managerState'] if SIMULATION else None
-      self.sm = messaging.SubMaster(['deviceState', 'pandaStates', 'peripheralState', 'modelV2', 'liveCalibration',
+      self.sm = messaging.SubMaster(['deviceState', 'pandaState', 'modelV2', 'liveCalibration',
                                      'driverMonitoringState', 'longitudinalPlan', 'lateralPlan', 'liveLocationKalman',
                                      'managerState', 'liveParameters', 'radarState', 'liveNaviData', 'liveMapData'] + self.camera_packets + joystick_packet,
                                      ignore_alive=ignore, ignore_avg_freq=['radarState', 'longitudinalPlan'])
@@ -125,9 +125,7 @@ class Controls:
     controller_available = self.CI.CC is not None and not passive and not self.CP.dashcamOnly
     self.read_only = not car_recognized or not controller_available or self.CP.dashcamOnly
     if self.read_only:
-      safety_config = car.CarParams.SafetyConfig.new_message()
-      safety_config.safetyModel = car.CarParams.SafetyModel.noOutput
-      self.CP.safetyConfigs = [safety_config]
+      self.CP.safetyModel = car.CarParams.SafetyModel.noOutput
 
     # Write CarParams for radard
     cp_bytes = self.CP.to_bytes()
@@ -161,6 +159,7 @@ class Controls:
       self.LaC = LatControlATOM(self.CP, self.CI)
       self.lateral_control_method = 4
 
+    self.controlsAllowed = False
 
     self.initialized = False
     self.state = State.disabled
@@ -271,8 +270,7 @@ class Controls:
     self.events.add_from_msg(self.sm['driverMonitoringState'].events)
 
     # Create events for battery, temperature, disk space, and memory
-    if EON and (self.sm['peripheralState'].pandaType != PandaType.uno) and \
-       self.sm['deviceState'].batteryPercent < 1 and self.sm['deviceState'].chargingError and not self.batt_less:
+    if EON and self.sm['deviceState'].batteryPercent < 1 and self.sm['deviceState'].chargingError and not self.batt_less:
       # at zero percent battery, while discharging, OP should not allowed
       self.events.add(EventName.lowBattery)
     if self.sm['deviceState'].thermalStatus >= ThermalStatus.red:
@@ -290,8 +288,8 @@ class Controls:
     #  self.events.add(EventName.highCpuUsage)
 
     # Alert if fan isn't spinning for 5 seconds
-    if self.sm['peripheralState'].pandaType in (PandaType.uno, PandaType.dos):
-      if self.sm['peripheralState'].fanSpeedRpm == 0 and self.sm['deviceState'].fanSpeedPercentDesired > 50:
+    if self.sm['pandaState'].pandaType in (PandaType.uno, PandaType.dos):
+      if self.sm['pandaState'].fanSpeedRpm == 0 and self.sm['deviceState'].fanSpeedPercentDesired > 50:
         if (self.sm.frame - self.last_functional_fan_frame) * DT_CTRL > 5.0:
           self.events.add(EventName.fanMalfunction)
       else:
@@ -332,16 +330,9 @@ class Controls:
     elif self.can_rcv_error or not CS.canValid and not self.ignore_can_error_on_isg:
       self.events.add(EventName.canError)
 
-    for i, pandaState in enumerate(self.sm['pandaStates']):
-      # All pandas must match the list of safetyConfigs, and if outside this list, must be silent or noOutput
-      if i < len(self.CP.safetyConfigs):
-        safety_mismatch = pandaState.safetyModel != self.CP.safetyConfigs[i].safetyModel or \
-                          pandaState.safetyParam != self.CP.safetyConfigs[i].safetyParam
-      else:
-        safety_mismatch = pandaState.safetyModel not in IGNORED_SAFETY_MODES
-
-      if safety_mismatch or self.mismatch_counter >= 200:
-        self.events.add(EventName.controlsMismatch)
+    safety_mismatch = self.sm['pandaState'].safetyModel != self.CP.safetyModel or self.sm['pandaState'].safetyParam != self.CP.safetyParam
+    if safety_mismatch or self.mismatch_counter >= 200:
+      self.events.add(EventName.controlsMismatch)
 
     self.second += DT_CTRL
     if self.second > 1.0:
@@ -362,7 +353,7 @@ class Controls:
     # Check for HW or system issues
     if len(self.sm['radarState'].radarErrors):
       self.events.add(EventName.radarFault)
-    elif not self.sm.valid["pandaStates"]:
+    elif not self.sm.valid["pandaState"]:
       self.events.add(EventName.usbError)
     elif not self.sm.all_checks() or self.can_rcv_error:
       if self.commIssue_ignored or self.map_enabled:
@@ -482,7 +473,7 @@ class Controls:
     self.sm.update(0)
 
     if not self.initialized:
-      all_valid = CS.canValid and self.sm.all_checks()
+      all_valid = CS.canValid and self.sm.all_alive_and_valid()
       if all_valid or self.sm.frame * DT_CTRL > 3.5 or SIMULATION:
         if not self.read_only:
           self.CI.init(self.CP, self.can_sock, self.pm.sock['sendcan'])
@@ -500,12 +491,10 @@ class Controls:
     # we want to disengage openpilot. However the status from the panda goes through
     # another socket other than the CAN messages and one can arrive earlier than the other.
     # Therefore we allow a mismatch for two samples, then we trigger the disengagement.
+    self.controlsAllowed = self.sm['pandaState'].controlsAllowed
     if not self.enabled:
       self.mismatch_counter = 0
-
-    # All pandas not in silent mode must have controlsAllowed when openpilot is enabled
-    if self.enabled and any(not ps.controlsAllowed for ps in self.sm['pandaStates']
-           if ps.safetyModel not in IGNORED_SAFETY_MODES):
+    elif not self.controlsAllowed and self.enabled:
       self.mismatch_counter += 1
 
     self.distance_traveled += CS.vEgo * DT_CTRL

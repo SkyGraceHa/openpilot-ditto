@@ -23,13 +23,15 @@ typedef union _USB_Setup {
 }
 USB_Setup_TypeDef;
 
-bool usb_enumerated = false;
+#define MAX_CAN_MSGS_PER_BULK_TRANSFER 4U
+
+bool usb_eopf_detected = false;
 
 void usb_init(void);
-int usb_cb_control_msg(USB_Setup_TypeDef *setup, uint8_t *resp);
-int usb_cb_ep1_in(void *usbdata, int len);
-void usb_cb_ep2_out(void *usbdata, int len);
-void usb_cb_ep3_out(void *usbdata, int len);
+int usb_cb_control_msg(USB_Setup_TypeDef *setup, uint8_t *resp, bool hardwired);
+int usb_cb_ep1_in(void *usbdata, int len, bool hardwired);
+void usb_cb_ep2_out(void *usbdata, int len, bool hardwired);
+void usb_cb_ep3_out(void *usbdata, int len, bool hardwired);
 void usb_cb_ep3_out_complete(void);
 void usb_cb_enumeration_complete(void);
 void usb_outep3_resume_if_paused(void);
@@ -84,7 +86,7 @@ void usb_outep3_resume_if_paused(void);
 #define STS_SETUP_COMP                         4
 #define STS_SETUP_UPDT                         6
 
-uint8_t resp[USBPACKET_MAX_SIZE];
+uint8_t resp[MAX_RESP_LEN];
 
 // for the repeating interfaces
 #define DSCR_INTERFACE_LEN 9
@@ -121,7 +123,7 @@ uint8_t device_desc[] = {
   0xFF, 0xFF, 0xFF, 0x40, // Class, Subclass, Protocol, Max Packet Size
   TOUSBORDER(USB_VID), // idVendor
   TOUSBORDER(USB_PID), // idProduct
-  0x00, 0x00, // bcdDevice
+  0x00, 0x23, // bcdDevice
   0x01, 0x02, // Manufacturer, Product
   0x03, 0x01 // Serial Number, Num Configurations
 };
@@ -384,7 +386,7 @@ void USB_WritePacket(const void *src, uint16_t len, uint32_t ep) {
   hexdump(src, len);
   #endif
 
-  uint32_t numpacket = (len + (USBPACKET_MAX_SIZE - 1U)) / USBPACKET_MAX_SIZE;
+  uint32_t numpacket = (len + (MAX_RESP_LEN - 1U)) / MAX_RESP_LEN;
   uint32_t count32b = 0;
   count32b = (len + 3U) / 4U;
 
@@ -491,7 +493,7 @@ void usb_setup(void) {
                                USB_OTG_DOEPCTL_SD0PID_SEVNFRM | USB_OTG_DOEPCTL_USBAEP;
       USBx_OUTEP(2)->DOEPINT = 0xFF;
 
-      USBx_OUTEP(3)->DOEPTSIZ = (32U << 19) | 0x800U;
+      USBx_OUTEP(3)->DOEPTSIZ = (1U << 19) | 0x40U;
       USBx_OUTEP(3)->DOEPCTL = (0x40U & USB_OTG_DOEPCTL_MPSIZ) | (2U << 18) |
                                USB_OTG_DOEPCTL_SD0PID_SEVNFRM | USB_OTG_DOEPCTL_USBAEP;
       USBx_OUTEP(3)->DOEPINT = 0xFF;
@@ -524,8 +526,6 @@ void usb_setup(void) {
         case USB_DESC_TYPE_DEVICE:
           //puts("    writing device descriptor\n");
 
-          // set bcdDevice to hardware type
-          device_desc[13] = hw_type;
           // setup transfer
           USB_WritePacket(device_desc, MIN(sizeof(device_desc), setup.b.wLength.w), 0);
           USBx_OUTEP(0)->DOEPCTL |= USB_OTG_DOEPCTL_CNAK;
@@ -639,7 +639,7 @@ void usb_setup(void) {
       }
       break;
     default:
-      resp_len = usb_cb_control_msg(&setup, resp);
+      resp_len = usb_cb_control_msg(&setup, resp, 1);
       // response pending if -1 was returned
       if (resp_len != -1) {
         USB_WritePacket(resp, MIN(resp_len, setup.b.wLength.w), 0);
@@ -680,17 +680,12 @@ void usb_irqhandler(void) {
   }
 
   if ((gintsts & USB_OTG_GINTSTS_EOPF) != 0) {
-    usb_enumerated = true;
+    usb_eopf_detected = true;
   }
 
   if ((gintsts & USB_OTG_GINTSTS_USBRST) != 0) {
     puts("USB reset\n");
-    usb_enumerated = false;
     usb_reset();
-  }
-
-  if ((gintsts & USB_OTG_GINTSTS_USBSUSP) != 0) {
-    usb_enumerated = false;
   }
 
   if ((gintsts & USB_OTG_GINTSTS_ENUMDNE) != 0) {
@@ -737,12 +732,12 @@ void usb_irqhandler(void) {
       #endif
 
       if (endpoint == 2) {
-        usb_cb_ep2_out(usbdata, len);
+        usb_cb_ep2_out(usbdata, len, 1);
       }
 
       if (endpoint == 3) {
         outep3_processing = true;
-        usb_cb_ep3_out(usbdata, len);
+        usb_cb_ep3_out(usbdata, len, 1);
       }
     } else if (status == STS_SETUP_UPDT) {
       (void)USB_ReadPacket(&setup, 8);
@@ -826,11 +821,9 @@ void usb_irqhandler(void) {
       // USBx_OUTEP(3)->DOEPTSIZ = (1U << 19) | 0x40U;
       // USBx_OUTEP(3)->DOEPCTL |= USB_OTG_DOEPCTL_CNAK;
     } else if ((USBx_OUTEP(3)->DOEPINT) != 0) {
-      #ifdef DEBUG_USB
-        puts("OUTEP3 error ");
-        puth(USBx_OUTEP(3)->DOEPINT);
-        puts("\n");
-      #endif
+      puts("OUTEP3 error ");
+      puth(USBx_OUTEP(3)->DOEPINT);
+      puts("\n");
     } else {
       // USBx_OUTEP(3)->DOEPINT is 0, ok to skip
     }
@@ -881,7 +874,7 @@ void usb_irqhandler(void) {
           puts("  IN PACKET QUEUE\n");
           #endif
           // TODO: always assuming max len, can we get the length?
-          USB_WritePacket((void *)resp, usb_cb_ep1_in(resp, 0x40), 1);
+          USB_WritePacket((void *)resp, usb_cb_ep1_in(resp, 0x40, 1), 1);
         }
         break;
 
@@ -892,7 +885,7 @@ void usb_irqhandler(void) {
           puts("  IN PACKET QUEUE\n");
           #endif
           // TODO: always assuming max len, can we get the length?
-          int len = usb_cb_ep1_in(resp, 0x40);
+          int len = usb_cb_ep1_in(resp, 0x40, 1);
           if (len > 0) {
             USB_WritePacket((void *)resp, len, 1);
           }
@@ -937,16 +930,20 @@ void usb_irqhandler(void) {
 void usb_outep3_resume_if_paused(void) {
   ENTER_CRITICAL();
   if (!outep3_processing && (USBx_OUTEP(3)->DOEPCTL & USB_OTG_DOEPCTL_NAKSTS) != 0) {
-    USBx_OUTEP(3)->DOEPTSIZ = (32U << 19) | 0x800U;
+    USBx_OUTEP(3)->DOEPTSIZ = (1U << 19) | 0x40U;
     USBx_OUTEP(3)->DOEPCTL |= USB_OTG_DOEPCTL_EPENA | USB_OTG_DOEPCTL_CNAK;
   }
   EXIT_CRITICAL();
 }
 
-void usb_soft_disconnect(bool enable) {
-  if (enable) {
-    USBx_DEVICE->DCTL |= USB_OTG_DCTL_SDIS;
-  } else {
-    USBx_DEVICE->DCTL &= ~USB_OTG_DCTL_SDIS;
+bool usb_enumerated(void) {
+  // This relies on the USB being suspended after no activity for 3ms.
+  // Seems pretty stable in combination with the EOPF to reject noise.
+  bool ret = false;
+  if(!(USBx_DEVICE->DSTS & USB_OTG_DSTS_SUSPSTS)){
+    // Check to see if an end of periodic frame is detected
+    ret = usb_eopf_detected;
   }
+  usb_eopf_detected = false;
+  return ret;
 }
