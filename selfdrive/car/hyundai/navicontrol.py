@@ -163,9 +163,9 @@ class NaviControl():
     cruise_set_speed_kph = cruiseState_speed
     v_ego_kph = CS.out.vEgo * CV.MS_TO_KPH
     v_ego_mph = CS.out.vEgo * CV.MS_TO_MPH
-    if self.navi_sel in (0, 1):
+    if self.navi_sel in (1,2,3):
       self.liveNaviData = sm['liveNaviData']
-    elif self.navi_sel == 3:
+    elif self.navi_sel in (4,5):
       self.liveNaviData = sm['liveENaviData']
     else:
       self.liveNaviData = sm['liveNaviData']
@@ -178,8 +178,67 @@ class NaviControl():
     #if not mapValid or trafficType == 0:
     #  return  cruise_set_speed_kph
 
-    if not self.speedlimit_decel_off:
-      if self.osm_speedlimit_enabled and not self.sm['controlsState'].osmOffSpdLimit:  # osm speedlimit
+    if not self.speedlimit_decel_off and not self.sm['controlsState'].pauseSpdLimit:
+      if (self.navi_sel == 5 or (CS.map_enabled and self.navi_sel == 3)):
+        if self.sm['liveNaviData'].wazeRoadSpeedLimit > 9:
+          self.map_speed = self.sm['liveNaviData'].wazeRoadSpeedLimit
+          self.map_speed_dist = max(0, self.sm['liveNaviData'].wazeAlertDistance)
+          spdTarget = self.map_speed
+          cam_distance_calc = 0
+          cam_distance_calc = interp(self.map_speed * CV.MPH_TO_KPH if CS.is_set_speed_in_mph else 1, [30, 60, 110], [2.5, 3.0, 3.7])
+          consider_speed = interp((v_ego_kph - self.map_speed * CV.MPH_TO_KPH if CS.is_set_speed_in_mph else 1), [0, 50], [1, 1.8])
+          min_control_dist = interp(self.map_speed * CV.MPH_TO_KPH if CS.is_set_speed_in_mph else 1, [30, 110], [40, 250])
+          final_cam_decel_start_dist = cam_distance_calc*consider_speed*v_ego_kph * (1 + self.safetycam_decel_dist_gain*0.01)
+          if 0 < self.map_speed and self.map_speed_dist != 0:
+            if self.map_speed_dist < final_cam_decel_start_dist:
+              spdTarget = self.map_speed
+            elif self.map_speed_dist < min_control_dist and self.map_speed_dist != 0:
+              spdTarget = self.map_speed
+          else:
+            self.onSpeedControl = False
+            return cruise_set_speed_kph
+          if self.map_spdlimit_offset_option == 0:
+            cruise_set_speed_kph = spdTarget + round(spdTarget*0.01*self.map_spdlimit_offset)
+          elif self.map_spdlimit_offset_option in (1,3):
+            cruise_set_speed_kph = spdTarget + self.map_spdlimit_offset
+          elif self.map_spdlimit_offset_option == 2:
+            cruise_set_speed_kph = int(interp(spdTarget, self.osm_custom_spdlimit_c, self.osm_custom_spdlimit_t))
+          if cruise_set_speed_kph+1.5 < v_ego_mph and CS.is_set_speed_in_mph and not CS.out.gasPressed:
+            self.onSpeedControl = True
+          elif cruise_set_speed_kph+1.5 < v_ego_kph and not CS.is_set_speed_in_mph and not CS.out.gasPressed:
+            self.onSpeedControl = True
+          else:
+            self.onSpeedControl = False
+        elif self.sm['liveENaviData'].wazeRoadSpeedLimit > 9:
+          self.map_speed = self.sm['liveENaviData'].wazeRoadSpeedLimit
+          self.map_speed_dist = max(0, self.sm['liveENaviData'].wazeAlertDistance)
+          spdTarget = self.map_speed
+          cam_distance_calc = 0
+          cam_distance_calc = interp(self.map_speed * CV.MPH_TO_KPH if CS.is_set_speed_in_mph else 1, [30, 60, 110], [2.5, 3.0, 3.7])
+          consider_speed = interp((v_ego_kph - self.map_speed * CV.MPH_TO_KPH if CS.is_set_speed_in_mph else 1), [0, 50], [1, 1.8])
+          min_control_dist = interp(self.map_speed * CV.MPH_TO_KPH if CS.is_set_speed_in_mph else 1, [30, 110], [40, 250])
+          final_cam_decel_start_dist = cam_distance_calc*consider_speed*v_ego_kph * (1 + self.safetycam_decel_dist_gain*0.01)
+          if 0 < self.map_speed and self.map_speed_dist != 0:
+            if self.map_speed_dist < final_cam_decel_start_dist:
+              spdTarget = self.map_speed
+            elif self.map_speed_dist < min_control_dist and self.map_speed_dist != 0:
+              spdTarget = self.map_speed
+          else:
+            self.onSpeedControl = False
+            return cruise_set_speed_kph
+          if self.map_spdlimit_offset_option == 0:
+            cruise_set_speed_kph = spdTarget + round(spdTarget*0.01*self.map_spdlimit_offset)
+          elif self.map_spdlimit_offset_option in (1,3):
+            cruise_set_speed_kph = spdTarget + self.map_spdlimit_offset
+          elif self.map_spdlimit_offset_option == 2:
+            cruise_set_speed_kph = int(interp(spdTarget, self.osm_custom_spdlimit_c, self.osm_custom_spdlimit_t))
+          if cruise_set_speed_kph+1.5 < v_ego_mph and CS.is_set_speed_in_mph and not CS.out.gasPressed:
+            self.onSpeedControl = True
+          elif cruise_set_speed_kph+1.5 < v_ego_kph and not CS.is_set_speed_in_mph and not CS.out.gasPressed:
+            self.onSpeedControl = True
+          else:
+            self.onSpeedControl = False
+      elif self.osm_speedlimit_enabled:  # osm speedlimit
         if self.sm['liveMapData'].speedLimit > 21 or self.sm['liveMapData'].speedLimitAhead > 21:
           # spdTarget = cruiseState_speed
           spdTarget = self.sm['liveMapData'].speedLimit
@@ -235,27 +294,27 @@ class NaviControl():
               self.onSpeedControl = True
             else:
               self.onSpeedControl = False
-      elif self.decel_on_speedbump and (CS.map_enabled or self.navi_sel == 3) and ((self.liveNaviData.safetySign == 107 and self.navi_sel == 0) \
-       or (self.liveNaviData.safetySignCam == 124 and self.navi_sel == 1) or (self.liveNaviData.safetySign == 22 and self.navi_sel == 3)):
+      elif self.decel_on_speedbump and (CS.map_enabled or self.navi_sel == 4) and ((self.liveNaviData.safetySign == 107 and self.navi_sel == 2) \
+       or (self.liveNaviData.safetySignCam == 124 and self.navi_sel == 1) or (self.liveNaviData.safetySign == 22 and self.navi_sel == 4)):
         sb_consider_speed = interp((v_ego_kph - (20 if CS.is_set_speed_in_mph else 30)), [0, 10, 25, 50], [1.5, 1.9, 2.0, 2.1])
         sb_final_decel_start_dist = sb_consider_speed*v_ego_kph
-        if self.liveNaviData.safetyDistance < sb_final_decel_start_dist and self.navi_sel == 3:
+        if self.liveNaviData.safetyDistance < sb_final_decel_start_dist and self.navi_sel == 4:
           cruise_set_speed_kph == 20 if CS.is_set_speed_in_mph else 30
           self.onSpeedBumpControl = True
           self.onSpeedBumpControl2 = False
-        elif self.liveNaviData.safetyDistance >= sb_final_decel_start_dist and self.navi_sel == 3:
+        elif self.liveNaviData.safetyDistance >= sb_final_decel_start_dist and self.navi_sel == 4:
           cruise_set_speed_kph == 35 if CS.is_set_speed_in_mph else 60
           self.onSpeedBumpControl = False
           self.onSpeedBumpControl2 = True
-        elif self.navi_sel in (0,1):
+        elif self.navi_sel in (1,2):
           cruise_set_speed_kph == 20 if CS.is_set_speed_in_mph else 30
           self.onSpeedBumpControl = True
           self.onSpeedBumpControl2 = False
         else:
           self.onSpeedBumpControl = False
           self.onSpeedBumpControl2 = False
-      elif (CS.map_enabled or self.navi_sel == 3) and self.liveNaviData.speedLimit > 21 \
-       and ((self.liveNaviData.safetySignCam not in (4, 7, 16) and self.navi_sel != 3) or (self.liveNaviData.safetySign not in (20, 21) and self.navi_sel == 3)):  # navi app speedlimit
+      elif ((CS.map_enabled and not self.navi_sel == 3) or self.navi_sel == 4) and self.liveNaviData.speedLimit > 21 \
+       and ((self.liveNaviData.safetySignCam not in (4, 7, 16) and self.navi_sel != 4) or (self.liveNaviData.safetySign not in (20, 21) and self.navi_sel == 4)):  # navi app speedlimit
         self.onSpeedBumpControl = False
         self.onSpeedBumpControl2 = False
         self.map_speed_dist = max(0, self.liveNaviData.safetyDistance - 30)
@@ -267,7 +326,7 @@ class NaviControl():
         else:
           self.map_speed_block = False
         cam_distance_calc = 0
-        cam_distance_calc = interp(self.map_speed, [30, 60, 110], [2.5, 2.9, 3.6])
+        cam_distance_calc = interp(self.map_speed, [30, 60, 110], [2.2, 2.9, 3.6])
         consider_speed = interp((v_ego_kph - self.map_speed), [0, 50], [1, 1.7])
         min_control_dist = interp(self.map_speed, [30, 110], [40, 250])
         final_cam_decel_start_dist = cam_distance_calc*consider_speed*v_ego_kph * (1 + self.safetycam_decel_dist_gain*0.01)
@@ -293,7 +352,7 @@ class NaviControl():
           self.onSpeedControl = True
         else:
           self.onSpeedControl = False
-      elif CS.safety_sign > 21 and self.stock_navi_info_enabled and not (CS.map_enabled or self.navi_sel == 3):  # cat stock navi speedlimit
+      elif CS.safety_sign > 21 and self.stock_navi_info_enabled and not (CS.map_enabled or self.navi_sel in (4,5)):  # cat stock navi speedlimit
         self.onSpeedBumpControl = False
         self.onSpeedBumpControl2 = False
         self.map_speed_dist = max(0, CS.safety_dist - int(interp(CS.safety_sign, [30,110], [20,70])))
@@ -303,7 +362,7 @@ class NaviControl():
         else:
           self.map_speed_block = False
         cam_distance_calc = 0
-        cam_distance_calc = interp(self.map_speed, [30, 60, 110], [2.5, 3.0, 3.7])
+        cam_distance_calc = interp(self.map_speed, [30, 60, 110], [2.2, 3.0, 3.7])
         consider_speed = interp((v_ego_kph - (self.map_speed * (CV.MPH_TO_KPH if CS.is_set_speed_in_mph else 1))), [0, 50], [1, 1.8])
         min_control_dist = interp(self.map_speed, [30, 110], [40, 250])
         final_cam_decel_start_dist = cam_distance_calc*consider_speed*v_ego_kph * (1 + self.safetycam_decel_dist_gain*0.01)
@@ -343,7 +402,8 @@ class NaviControl():
       self.onSpeedControl = False
       self.map_speed = 0
       self.map_speed_dist = 0
-      self.map_speed_block = False
+      if not self.speedlimit_decel_off and not self.sm['controlsState'].pauseSpdLimit:
+        self.map_speed_block = False
       self.onSpeedBumpControl = False
       self.onSpeedBumpControl2 = False
 
@@ -371,7 +431,8 @@ class NaviControl():
     #self.leadv3 = self.sm['modelV2'].leadsV3
 
     cut_in_model = True if self.lead_1.status and (self.lead_0.dRel - self.lead_1.dRel) > 3.0 else False
-    cut_in_ed_rd_diff = True if 0 < CS.lead_distance <= 149 and (CS.lead_distance - self.lead_0.dRel) > 3.0 else False
+    dist_sel = self.lead_1.dRel if 0 < self.lead_1.dRel < 150 else self.lead_0.dRel if 0 < self.lead_0.dRel < 150 else CS.lead_distance
+    cut_in_ed_rd_diff = True if 0 < CS.lead_distance <= 149 and (CS.lead_distance - dist_sel) > 3.0 else False
 
     self.cut_in = cut_in_model or cut_in_ed_rd_diff
 
@@ -395,23 +456,24 @@ class NaviControl():
         self.faststart = True
         var_speed = min(navi_speed, 30 if CS.is_set_speed_in_mph else 50)
       elif self.onSpeedBumpControl2 and not self.lead_0.status:
-        var_speed = min(navi_speed, 30 if CS.is_set_speed_in_mph else 50)
+        var_speed = min(navi_speed, 30 if CS.is_set_speed_in_mph else 60)
         self.t_interval = 7
       elif self.onSpeedBumpControl:
         var_speed = min(navi_speed, 20 if CS.is_set_speed_in_mph else 30)
         self.t_interval = 7
       elif self.faststart and CS.CP.vFuture <= 40:
         var_speed = min(navi_speed, 30 if CS.is_set_speed_in_mph else 50)
-      elif self.lead_0.status and CS.CP.vFuture >= (min_control_speed-(4 if CS.is_set_speed_in_mph else 7)):
+      elif (self.lead_0.status or self.lead_1.status) and CS.CP.vFuture >= (min_control_speed-(4 if CS.is_set_speed_in_mph else 7)):
         self.faststart = False
         dRel = int(self.lead_0.dRel)
         vRel = int(self.lead_0.vRel * (CV.MS_TO_MPH if CS.is_set_speed_in_mph else CV.MS_TO_KPH))
         if self.cut_in_run_timer > 0:
           self.cut_in_run_timer -= 1
         elif self.cut_in:
-          self.cut_in_run_timer = 1000
+          self.cut_in_run_timer = 1500
         d_ratio = interp(CS.clu_Vanz, [40, 110], [0.3, 0.2])
-        if self.cut_in_run_timer and dRel < CS.clu_Vanz * d_ratio: # keep decel when cut_in, max running time 10sec
+        if self.cut_in_run_timer and dRel < CS.clu_Vanz * d_ratio: # keep decel when cut_in, max running time 15sec
+          self.t_interval = 7
           self.cutInControl = True
           var_speed = min(CS.CP.vFutureA, navi_speed)
         elif vRel >= (-3 if CS.is_set_speed_in_mph else -5):
@@ -483,7 +545,7 @@ class NaviControl():
     elif CS.cruise_active:
       cruiseState_speed = round(self.sm['controlsState'].vCruise)
       kph_set_vEgo = self.get_navi_speed(self.sm, CS, cruiseState_speed) # camspeed
-      if self.osm_speedlimit_enabled:
+      if self.osm_speedlimit_enabled and self.map_spdlimit_offset_option == 2:
         navi_speed = kph_set_vEgo
       else:
         navi_speed = min(cruiseState_speed, kph_set_vEgo)

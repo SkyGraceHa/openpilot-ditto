@@ -2610,33 +2610,38 @@
     </message>
     <message>
         <location filename="../qt/widgets/opkr.cc" line="5869"/>
-        <source>Select the navigation you want to use.(iNavi/Mappy/Waze/TMap/None)</source>
-        <translation>사용할 네비게이션을 선택합니다.(아이나비/맵피/웨이즈/티맵/없음), 티맵의 경우 OPKR Connect 어플과 함께 별도 단말기로 실행해야 합니다.</translation>
+        <source>Select the navigation you want to use.(None/Mappy/iNavi/Waze/TMapE/WazeE)</source>
+        <translation>사용할 네비게이션을 선택합니다.(없음/맵피/아이나비/웨이즈/외부티맵/외부웨이즈), 외부 티맵이나 외부 웨이즈의 경우 OPKR Connect 어플과 함께 별도 단말기로 실행해야 합니다.</translation>
     </message>
     <message>
         <location filename="../qt/widgets/opkr.cc" line="5925"/>
-        <source>iNavi</source>
-        <translation>아이나비</translation>
+        <source>None</source>
+        <translation>없음</translation>
     </message>
     <message>
-        <location filename="../qt/widgets/opkr.cc" line="5927"/>
+        <location filename="../qt/widgets/opkr.cc" line="5926"/>
         <source>Mappy</source>
         <translation>맵피</translation>
     </message>
     <message>
-        <location filename="../qt/widgets/opkr.cc" line="5929"/>
+        <location filename="../qt/widgets/opkr.cc" line="5927"/>
+        <source>iNavi</source>
+        <translation>아이나비</translation>
+    </message>
+    <message>
+        <location filename="../qt/widgets/opkr.cc" line="5928"/>
         <source>Waze</source>
         <translation>웨이즈</translation>
     </message>
     <message>
-        <location filename="../qt/widgets/opkr.cc" line="5931"/>
-        <source>TMap</source>
-        <translation>티맵</translation>
+        <location filename="../qt/widgets/opkr.cc" line="5929"/>
+        <source>TMapE</source>
+        <translation>E티맵</translation>
     </message>
     <message>
-        <location filename="../qt/widgets/opkr.cc" line="5933"/>
-        <source>None</source>
-        <translation>없음</translation>
+        <location filename="../qt/widgets/opkr.cc" line="5930"/>
+        <source>WazeE</source>
+        <translation>E웨이즈</translation>
     </message>
 </context>
 <context>
@@ -2874,13 +2879,13 @@
     <name>OSMCustomSpeedLimitUD</name>
     <message>
         <location filename="../qt/widgets/opkr.cc" line="6574"/>
-        <source>OSMCustomSpeedLimit([SL] [TargetSpeed])</source>
-        <translation>OSM임의속도제한([SL] [목표속도])</translation>
+        <source>CustomSpeedLimit([SL] [TargetSpeed])</source>
+        <translation>커스텀속도제한([SL] [목표속도])</translation>
     </message>
     <message>
         <location filename="../qt/widgets/opkr.cc" line="6574"/>
-        <source>Set the offset speed according to speed limit of OSM. (interpolation value)</source>
-        <translation>OSM의 제한속도에 따른 오프셋 속도를 설정합니다.(중간값은 보간값)</translation>
+        <source>Set the offset speed according to speed limit of OSM or Waze. (interpolation value)</source>
+        <translation>OSM 혹은 Waze의 제한속도에 따른 오프셋 속도를 설정합니다.(중간값은 보간값)</translation>
     </message>
 </context>
 <context>
@@ -3028,8 +3033,8 @@
     </message>
     <message>
         <location filename="../qt/widgets/opkr.cc" line="6945"/>
-        <source>Date/Time/OSM Street Name</source>
-        <translation>날짜/시간/OSM거리명</translation>
+        <source>Date/Time/StreetName</source>
+        <translation>날짜/시간/거리</translation>
     </message>
     <message>
         <location filename="../qt/widgets/opkr.cc" line="7003"/>
@@ -3053,23 +3058,23 @@
     </message>
     <message>
         <location filename="../qt/widgets/opkr.cc" line="7015"/>
-        <source>Date+Time+OSM</source>
-        <translation>날짜+시간+OSM</translation>
+        <source>Date+Time+Str</source>
+        <translation>날짜+시간+거리명</translation>
     </message>
     <message>
         <location filename="../qt/widgets/opkr.cc" line="7018"/>
-        <source>Date+OSM</source>
-        <translation>날짜+OSM</translation>
+        <source>Date+Str</source>
+        <translation>날짜+거리명</translation>
     </message>
     <message>
         <location filename="../qt/widgets/opkr.cc" line="7021"/>
-        <source>Time+OSM</source>
-        <translation>시간+OSM</translation>
+        <source>Time+Str</source>
+        <translation>시간+거리명</translation>
     </message>
     <message>
         <location filename="../qt/widgets/opkr.cc" line="7024"/>
-        <source>OSM</source>
-        <translation>OSM</translation>
+        <source>StreetName</source>
+        <translation>거리명</translation>
     </message>
 </context>
 <context>
@@ -4122,6 +4127,19 @@
         <location filename="../qt/widgets/opkr.cc" line="8548"/>
         <source>CruiseSet with RoadLimitSpeed Offset Value. This will add offset to navi road limit speed.</source>
         <translation>크루즈속도를 도로제한속도에 오프셋 값을 더해 최대 제한 속도를 설정합니다.</translation>
+    </message>
+</context>
+<context>
+    <name>OPKRDebug</name>
+    <message>
+        <location filename="../qt/widgets/opkr.h" line="976"/>
+        <source>OPKR Debug Mode</source>
+        <translation>OPKR 디버그 모드</translation>
+    </message>
+    <message>
+        <location filename="../qt/widgets/opkr.h" line="976"/>
+        <source>Run OPKR Debug Mode</source>
+        <translation>OPKR 디버그 모드를 실행합니다.</translation>
     </message>
 </context>
 </TS>

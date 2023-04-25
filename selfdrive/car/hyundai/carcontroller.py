@@ -1041,7 +1041,7 @@ class CarController():
                 if aReqValue < accel:
                   accel = interp(lead_objspd, [-1, 0, 5], [aReqValue, aReqValue, accel])
                 else:
-                  accel = accel*0.8
+                  accel = interp(self.dRel, [0, 40], [accel*0.1, accel*0.7])
               else:
                 accel = aReqValue
             elif aReqValue < 0.0 and CS.lead_distance < self.stoppingdist and accel >= aReqValue and lead_objspd <= 0 and self.stopping_dist_adj_enabled:
@@ -1051,10 +1051,11 @@ class CarController():
                 accel = self.accel - (DT_CTRL * interp(CS.out.vEgo, [0.0, 1.0, 2.0], [0.05, 1.0, 5.0]))
             elif aReqValue < 0.0:
               dRel2 = self.dRel if self.dRel > 0 else CS.lead_distance
-              if ((CS.lead_distance - dRel2 > 3.0) or self.NC.cutInControl) and accel < 0:
-                stock_weight = 0.3
-                if aReqValue < accel:
-                  stock_weight = interp(lead_objspd, [-1, 0, 5], [1.0, 1.0, 0.0])
+              if ((CS.lead_distance - dRel2 > 3.0) or self.NC.cutInControl) and accel < 0 and not self.ed_rd_diff_on:
+                self.ed_rd_diff_on = True
+                self.ed_rd_diff_on_timer = min(400, int(self.dRel * 5))
+                self.ed_rd_diff_on_timer2 = min(400, int(self.dRel * 5))
+                stock_weight = 1.0
               elif ((dRel2 - CS.lead_distance > 3.0) or self.NC.cutInControl) and not self.ed_rd_diff_on:
                 self.ed_rd_diff_on = True
                 self.ed_rd_diff_on_timer = min(400, int(self.dRel * 10))
@@ -1070,7 +1071,7 @@ class CarController():
                   self.ed_rd_diff_on = False
                 self.ed_rd_diff_on_timer = 0
                 self.ed_rd_diff_on_timer2 = 0
-                stock_weight = interp(abs(lead_objspd), [1.0, 4.0, 8.0, 20.0, 50.0], [0.2, 0.3, 1.0, 0.9, 0.2])
+                stock_weight = interp(abs(lead_objspd), [1.0, 5.0, 10.0, 20.0, 50.0], [0.15, 0.3, 1.0, 0.9, 0.2])
                 if aReqValue <= accel:
                   self.vrel_delta_timer = 0
                   self.vrel_delta_timer3 = 0
@@ -1109,7 +1110,12 @@ class CarController():
               self.stopped = False
           elif 0.1 < self.dRel < 80:
             self.stopped = False
-            pass
+            vvrel = self.vRel*3.6
+            vvrel_weight = interp(vvrel, [-35, 0], [0.2, 0.4])
+            if accel <= 0 and aReqValue <= 0:
+              accel = (accel*(1-vvrel_weight)) + (aReqValue*vvrel_weight)
+            else:
+              pass
           else:
             self.stopped = False
             if self.stopsign_enabled:

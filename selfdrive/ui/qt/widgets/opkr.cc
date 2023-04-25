@@ -2244,7 +2244,7 @@ SpeedLimitOffset::SpeedLimitOffset() : AbstractControl(tr("SpeedLimit Offset"), 
     auto str = QString::fromStdString(params.get("OpkrSpeedLimitOffsetOption"));
     int value = str.toInt();
     value = value + 1;
-    if (value >= 3) {
+    if (value >= 4) {
       value = 0;
     }
     QString values = QString::number(value);
@@ -2286,12 +2286,12 @@ void SpeedLimitOffset::refresh() {
     btn.setText("%");
   } else if (strs == "1") {
     btn.setText("±");
-  } else {
+  } else if (strs == "2") {
     btn.setText("C");
-  }
+  } else {
+    btn.setText("D");}
   label.setText(QString::fromStdString(params.get("OpkrSpeedLimitOffset")));
 }
-
 RESChoice::RESChoice() : AbstractControl(tr("AutoRES Option"), tr("Sets the auto RES option. 1. Adjust the temporary cruise speed, 2. Adjust the set speed itself according to the presence or absence of a preceding car. 3. Adjust the cruise speed if there is a preceding car, and adjust the set speed if there is no preceding car. Please note that the automatic RES may not work well depending on the conditions."), "../assets/offroad/icon_shell.png") {
 
   label.setAlignment(Qt::AlignVCenter|Qt::AlignRight);
@@ -5866,7 +5866,7 @@ void GetOffAlert::refresh() {
   }
 }
 
-OPKRNaviSelect::OPKRNaviSelect() : AbstractControl(tr("Navigation Select"), tr("Select the navigation you want to use.(iNavi/Mappy/Waze/TMap/None)"), "../assets/offroad/icon_shell.png") {
+OPKRNaviSelect::OPKRNaviSelect() : AbstractControl(tr("Navigation Select"), tr("Select the navigation you want to use.(None/Mappy/iNavi/Waze/TMapE/WazeE)"), "../assets/offroad/icon_shell.png") {
 
   label.setAlignment(Qt::AlignVCenter|Qt::AlignRight);
   label.setStyleSheet("color: #e0e879");
@@ -5900,7 +5900,7 @@ OPKRNaviSelect::OPKRNaviSelect() : AbstractControl(tr("Navigation Select"), tr("
     int value = str.toInt();
     value = value - 1;
     if (value <= -1) {
-      value = 4;
+      value = 5;
     }
     QString values = QString::number(value);
     params.put("OPKRNaviSelect", values.toStdString());
@@ -5910,7 +5910,7 @@ OPKRNaviSelect::OPKRNaviSelect() : AbstractControl(tr("Navigation Select"), tr("
     auto str = QString::fromStdString(params.get("OPKRNaviSelect"));
     int value = str.toInt();
     value = value + 1;
-    if (value >= 5) {
+    if (value >= 6) {
       value = 0;
     }
     QString values = QString::number(value);
@@ -5919,19 +5919,19 @@ OPKRNaviSelect::OPKRNaviSelect() : AbstractControl(tr("Navigation Select"), tr("
   });
   refresh();
 }
+
 void OPKRNaviSelect::refresh() {
   QString option = QString::fromStdString(params.get("OPKRNaviSelect"));
-  if (option == "0") {
-    label.setText(tr("iNavi"));
-  } else if (option == "1") {
-    label.setText(tr("Mappy"));
-  } else if (option == "2") {
-    label.setText(tr("Waze"));
-  } else if (option == "3") {
-    label.setText(tr("TMap"));
-  } else {
-    label.setText(tr("None"));
-  }}
+  if (option == "0") {label.setText(tr("None"));
+  } else if (option == "1") {label.setText(tr("Mappy"));
+  } else if (option == "2") {label.setText(tr("iNavi"));
+  } else if (option == "3") {label.setText(tr("Waze"));
+  } else if (option == "4") {label.setText(tr("TMapE"));
+  } else if (option == "5") {label.setText(tr("WazeE"));
+  }
+}
+
+
 OPKRServerSelect::OPKRServerSelect() : AbstractControl(tr("API Server"), tr("Set API server to OPKR/Comma/User's"), "../assets/offroad/icon_shell.png") {
   btn1.setStyleSheet(R"(
     padding: 0;
@@ -6571,7 +6571,7 @@ void AutoRESDelay::refresh() {
   btnplus.setText("+");
 }
 
-OSMCustomSpeedLimitUD::OSMCustomSpeedLimitUD() : AbstractControl(tr("OSMCustomSpeedLimit([SL] [TargetSpeed])"), tr("Set the offset speed according to speed limit of OSM. (interpolation value)"), "../assets/offroad/icon_shell.png") {
+OSMCustomSpeedLimitUD::OSMCustomSpeedLimitUD() : AbstractControl(tr("CustomSpeedLimit([SL] [TargetSpeed])"), tr("Set the offset speed according to speed limit of OSM or Waze. (interpolation value)"), "../assets/offroad/icon_shell.png") {
 }
 
 OSMCustomSpeedLimit::OSMCustomSpeedLimit() : AbstractControl("", "", "") {
@@ -6942,7 +6942,7 @@ void SpeedLaneWidth::refresh() {
   btn.setText(tr("EDIT"));
 }
 
-OPKRTopTextView::OPKRTopTextView() : AbstractControl(tr("Bottom Text View"), tr("Date/Time/OSM Street Name"), "../assets/offroad/icon_shell.png") {
+OPKRTopTextView::OPKRTopTextView() : AbstractControl(tr("Bottom Text View"), tr("Date/Time/StreetName"), "../assets/offroad/icon_shell.png") {
 
   label.setAlignment(Qt::AlignVCenter|Qt::AlignRight);
   label.setStyleSheet("color: #e0e879");
@@ -7012,16 +7012,16 @@ void OPKRTopTextView::refresh() {
     label.setText(tr("Time"));
     QUIState::ui_state.scene.top_text_view = 3;
   } else if (option == "4") {
-    label.setText(tr("Date+Time+OSM"));
+    label.setText(tr("Date+Time+Str"));
     QUIState::ui_state.scene.top_text_view = 4;
   } else if (option == "5") {
-    label.setText(tr("Date+OSM"));
+    label.setText(tr("Date+Str"));
     QUIState::ui_state.scene.top_text_view = 5;
   } else if (option == "6") {
-    label.setText(tr("Time+OSM"));
+    label.setText(tr("Time+Str"));
     QUIState::ui_state.scene.top_text_view = 6;
   } else {
-    label.setText(tr("OSM"));
+    label.setText(tr("StreetName"));
     QUIState::ui_state.scene.top_text_view = 7;
   }
 }
