@@ -67,7 +67,7 @@ def navid_thread(end_event, nv_queue):
     waze_nav_sign = 0
     waze_nav_distance = 0
     waze_alert_type = ""
-    waze_is_metric = True
+    waze_is_metric = Params().get_bool("IsMetric")
     waze_current_speed_prev = 0
 
   while not end_event.is_set():
@@ -95,14 +95,14 @@ def navid_thread(end_event, nv_queue):
       is_tunnel = 0
 
       if navi_selection == 5:
-        waze_alert_id = 0
-        waze_alert_distance = "0"
-        waze_road_speed_limit = 0
+        if (count % int(7. / DT_TRML)) == 0 and int(waze_current_speed) > 2:
+          waze_alert_id = 0
+          waze_alert_distance = "0"
+          waze_alert_type = ""
+        if (count % int(10. / DT_TRML)) == 0 and int(waze_current_speed) > 2 and int(waze_nav_distance) < 30:
+          waze_nav_sign = 0
+          waze_nav_distance = 0
         waze_current_speed = 0
-        waze_road_name = ""
-        waze_nav_sign = 0
-        waze_nav_distance = 0
-        waze_alert_type = ""
 
       if OPKR_Debug:
         opkr_0 = ""

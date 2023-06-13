@@ -556,29 +556,30 @@ static void update_status(UIState *s) {
     }
   }
 
-  // waze refresh at vehicle stop to prevent app from entering into pause state, refresh time 2min
-  if (s->scene.navi_select == 3 && s->scene.map_is_running && s->scene.map_on_overlay) {
-    if (s->scene.liveNaviData.wazecurrentspeed == 0 && !s->scene.waze_stop) {
+  // waze refresh after alert to keep going alerts, this is an workaround till to find out better solution.
+  if (s->scene.navi_select == 3) {
+    if (s->scene.map_is_running && s->scene.map_on_overlay && s->scene.liveNaviData.wazealertdistance >= 150) {
       s->scene.waze_stop_frame = s->sm->frame;
       s->scene.waze_stop = true;
-    } else if (s->scene.waze_stop && (s->sm->frame - s->scene.waze_stop_frame > 120*UI_FREQ)) {
-      if (s->scene.liveNaviData.wazecurrentspeed == 0) {
-        s->scene.map_on_top = true;
-        s->scene.map_on_overlay = false;
-        s->scene.waze_stop_frame = s->sm->frame;
-        system("am start --activity-task-on-home com.waze/com.waze.MainActivity");
-      } else if (s->scene.liveNaviData.wazecurrentspeed > 0) {
-        s->scene.waze_stop = false;
-      }
-    } else if (s->scene.liveNaviData.wazecurrentspeed > 0 && s->scene.waze_stop) {
+      s->scene.waze_stop2 = false;
+    } else if (s->scene.waze_stop && (s->sm->frame - s->scene.waze_stop_frame > 1*UI_FREQ)) {
       s->scene.waze_stop = false;
-    }
-  } else if (s->scene.navi_select == 3 && s->scene.map_is_running && !s->scene.map_on_overlay && s->scene.waze_stop) {
-    if (s->sm->frame - s->scene.waze_stop_frame > 20*UI_FREQ) {
+      s->scene.waze_stop2 = true;
+      s->scene.map_on_top = true;
+      s->scene.map_on_overlay = false;
+      system("am start --activity-task-on-home com.waze/com.waze.MainActivity");
+    } else if (s->scene.map_is_running && !s->scene.map_on_overlay && s->scene.waze_stop2 && s->scene.liveNaviData.wazealertdistance <= 0) {
       s->scene.waze_stop = false;
+      s->scene.waze_stop2 = false;
       s->scene.map_on_top = false;
       s->scene.map_on_overlay = true;
       system("am start --activity-task-on-home com.opkr.maphack/com.opkr.maphack.MainActivity");
+    } else if (!s->scene.waze_stop && !s->scene.waze_stop2 && s->scene.liveNaviData.wazealertdistance < 150 && s->scene.liveNaviData.wazealertdistance > 0) {
+      s->scene.waze_stop = false;
+      s->scene.waze_stop2 = true;
+      s->scene.map_on_top = true;
+      s->scene.map_on_overlay = false;
+      system("am start --activity-task-on-home com.waze/com.waze.MainActivity");
     }
   }
 
