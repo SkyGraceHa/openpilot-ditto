@@ -35,7 +35,8 @@ from decimal import Decimal
 import common.log as trace1
 
 SOFT_DISABLE_TIME = 3  # seconds
-LDW_MIN_SPEED = 50 * CV.KPH_TO_MS if Params().get_bool("IsMetric") else 31 * CV.MPH_TO_MS
+IS_KPH = Params().get_bool("IsMetric")
+LDW_MIN_SPEED = 50 * CV.KPH_TO_MS if IS_KPH else 31 * CV.MPH_TO_MS
 LANE_DEPARTURE_THRESHOLD = 0.1
 STEER_ANGLE_SATURATION_TIMEOUT = 1.0 / DT_CTRL
 STEER_ANGLE_SATURATION_THRESHOLD = 2.5  # Degrees
@@ -543,8 +544,8 @@ class Controls:
   def state_transition(self, CS):
     """Compute conditional state transitions and execute actions on state transitions"""
 
-    t_speed = 20 if CS.isMph else 30
-    m_unit = CV.MS_TO_MPH if CS.isMph else CV.MS_TO_KPH
+    t_speed = 30 if IS_KPH else 20
+    m_unit = CV.MS_TO_KPH if IS_KPH else CV.MS_TO_MPH
 
     if self.v_cruise_kph_set_timer > 0:
       self.v_cruise_kph_set_timer -= 1
@@ -620,12 +621,16 @@ class Controls:
       elif self.variable_cruise and CS.cruiseState.modeSel != 0 and (self.osm_speedlimit_enabled or (self.map_enabled and self.navi_selection == 3) or self.navi_selection == 5) and self.osm_waze_off_spdlimit_init:
         if self.map_enabled and self.navi_selection == 3:
           osm_waze_speedlimit_ = round(self.sm['liveNaviData'].wazeRoadSpeedLimit)
+          osm_waze_speedlimitdist_ = round(self.sm['liveNaviData'].wazeAlertDistance)
         elif self.navi_selection == 5:
           osm_waze_speedlimit_ = round(self.sm['liveENaviData'].wazeRoadSpeedLimit)
+          osm_waze_speedlimitdist_ = round(self.sm['liveENaviData'].wazeAlertDistance)
         elif self.osm_speedlimit_enabled:
           osm_waze_speedlimit_ = round(self.sm['liveMapData'].speedLimit)
+          osm_waze_speedlimitdist_ = 0
         else:
           osm_waze_speedlimit_ = round(self.sm['liveMapData'].speedLimit)
+          osm_waze_speedlimitdist_ = 0
         if self.osm_waze_spdlimit_offset_option == 0:
           osm_waze_speedlimit = osm_waze_speedlimit_ + round(osm_waze_speedlimit_*0.01*self.osm_waze_spdlimit_offset)
         elif self.osm_waze_spdlimit_offset_option == 1:
@@ -634,6 +639,10 @@ class Controls:
           osm_waze_speedlimit = int(interp(osm_waze_speedlimit_, self.osm_waze_custom_spdlimit_c, self.osm_waze_custom_spdlimit_t))
         if CS.cruiseButtons == Buttons.GAP_DIST:
           self.osm_waze_speedlimit = 255
+          self.pause_spdlimit = False
+        elif osm_waze_speedlimitdist_ > 0:
+          self.pause_spdlimit = False
+        elif self.pause_spdlimit and self.osm_waze_speedlimit != osm_waze_speedlimit_:
           self.pause_spdlimit = False
         elif self.osm_waze_speedlimit == osm_waze_speedlimit_:
           self.pause_spdlimit = True
@@ -926,8 +935,8 @@ class Controls:
     else:
       v_future = 100.0
       v_future_a = 100.0
-    v_future_speed= float((v_future * CV.MS_TO_MPH + 10.0) if CS.isMph else (v_future * CV.MS_TO_KPH))
-    v_future_speed_a= float((v_future_a * CV.MS_TO_MPH + 10.0) if CS.isMph else (v_future_a * CV.MS_TO_KPH))
+    v_future_speed= float((v_future * CV.MS_TO_KPH) if IS_KPH else (v_future * CV.MS_TO_MPH))
+    v_future_speed_a= float((v_future_a * CV.MS_TO_KPH) if IS_KPH else (v_future_a * CV.MS_TO_MPH))
     hudControl.vFuture = v_future_speed
     hudControl.vFutureA = v_future_speed_a
 

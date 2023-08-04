@@ -561,12 +561,12 @@ class CarController():
       self.last_lead_distance = 0
       self.standstill_res_button = False
     elif self.opkr_variablecruise and CS.acc_active and CS.out.cruiseState.modeSel > 0:
+      btn_signal = self.NC.update(CS, path_plan)
       self.on_speed_control = self.NC.onSpeedControl
       self.on_speed_bump_control = self.NC.onSpeedBumpControl
       self.curv_speed_control = self.NC.curvSpeedControl
       self.cut_in_control = self.NC.cutInControl
       self.driver_scc_set_control = self.NC.driverSccSetControl
-      btn_signal = self.NC.update(CS, path_plan)
       if self.opkr_cruisegap_auto_adj and not self.gap_by_spd_on:
         # gap restore
         if self.switch_timer > 0:
@@ -1114,6 +1114,8 @@ class CarController():
             vvrel_weight = interp(vvrel, [-35, 0], [0.2, 0.4])
             if accel <= 0 and aReqValue <= 0:
               accel = (accel*(1-vvrel_weight)) + (aReqValue*vvrel_weight)
+            elif accel <= 0 and aReqValue > 0 and CS.clu_Vanz > 30:
+              accel = (aReqValue*(1-vvrel_weight)) + (accel*vvrel_weight)
             else:
               pass
           else:
